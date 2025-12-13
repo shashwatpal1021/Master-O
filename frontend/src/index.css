@@ -1,3 +1,87 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+:root {
+	--bg: #f8fafc; /* light gray */
+	--card-bg: #ffffff; /* white */
+	--text: #111827; /* gray-900 */
+	--muted: #6b7280; /* gray-500 */
+	--muted-2: #9ca3af;
+}
+
+.task-flash { animation: flashTask 1.5s ease; }
+@keyframes flashTask { 0% { box-shadow: 0 0 0px rgba(59, 130, 246, 0.25);} 20% { box-shadow: 0 6px 26px rgba(59,130,246,0.18);} 100% { box-shadow: none; }}
+.dark {
+	--bg: #0b1220; /* darker background */
+	--card-bg: #0f1724; /* container */
+	--text: #e6eef8; /* light text */
+	--muted: #93a4bf; /* muted */
+	--muted-2: #9fb3d0;
+}
+
+body {
+	background-color: var(--bg);
+	color: var(--text);
+}
+
+.bg-card {
+	background-color: var(--card-bg);
+}
+
+.text-muted {
+	color: var(--muted);
+}
+
+.text-muted-2 {
+	color: var(--muted-2);
+}
+
+/* Modal styling */
+.modal-overlay {
+	position: fixed;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	background: rgba(2,6,23,0.6);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	z-index: 60;
+}
+.modal-card {
+	max-width: 600px;
+	width: 95%;
+	padding: 1.25rem;
+	border-radius: 0.5rem;
+	box-shadow: 0 10px 30px rgba(2,6,23,0.4);
+}
+
+/* modal animations */
+.modal-overlay { animation: overlayIn 180ms ease forwards; }
+@keyframes overlayIn { from { opacity: 0; } to { opacity: 1; } }
+.modal-card { transform: translateY(8px); animation: modalIn 220ms cubic-bezier(.2,.8,.2,1) forwards; }
+@keyframes modalIn { from { opacity: 0; transform: translateY(8px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+
+.plus-button { transition: transform 150ms ease; }
+.plus-button:hover { transform: scale(1.05); }
+.plus-button:active { transform: scale(0.98); }
+.btn-smooth { transition: transform 150ms ease, box-shadow 150ms ease; }
+.btn-smooth:hover { transform: translateY(-2px); }
+.btn-smooth:active { transform: translateY(0); }
+.btn-smooth:focus { outline: 2px solid rgba(99,102,241,0.25); }
+
+/* Spinner and toast */
+.animate-spin { animation: spin 1s linear infinite; }
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+.toast-wrap { position: fixed; top: 1rem; right: 1rem; z-index: 80; }
+.toast { padding: 0.75rem 1rem; border-radius: 6px; box-shadow: 0 8px 20px rgba(0,0,0,0.08); color: white; margin-bottom: 0.5rem; transform-origin: right top; animation: toastIn 200ms ease forwards; }
+@keyframes toastIn { from { transform: translateX(15px); opacity: 0;} to { transform: translateX(0); opacity: 1; } }
+.toast-success { background: #10b981; }
+.toast-error { background: #ef4444; }
+
+.task-card { transition: transform 120ms ease, box-shadow 120ms ease; }
+.task-card:hover { transform: translateY(-2px); box-shadow: 0 8px 22px rgba(0,0,0,0.06); }
+

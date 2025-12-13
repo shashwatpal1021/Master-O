@@ -44,8 +44,8 @@ const Login = () => {
 
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-50">
-            <div className="bg-white p-8 rounded shadow-md w-full max-w-md">
+        <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--bg)' }}>
+            <div className="bg-card p-8 rounded shadow-md w-full max-w-md">
                 <h1 className="text-2xl font-bold mb-4">Sign in</h1>
                 {error && <div className="mb-4 text-red-600">{error}</div>}
                 <form onSubmit={submit} className="space-y-4">
@@ -58,7 +58,7 @@ const Login = () => {
                         <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password" className="mt-1 block w-full border rounded p-2" required />
                     </div>
                     <div className="flex items-center justify-between">
-                        <button type="submit" className="bg-blue-600 text-white py-2 px-4 rounded disabled:opacity-50" disabled={loading}>{loading ? 'Signing in...' : 'Sign in'}</button>
+                        <button type="submit" className="bg-blue-600 text-white py-2 px-4 rounded disabled:opacity-50 btn-smooth" disabled={loading}>{loading ? (<><span className="inline-block mr-2 align-middle"><svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="10" stroke="white" stroke-opacity="0.2" stroke-width="4" /><path d="M22 12a10 10 0 00-10-10" stroke="white" stroke-width="4" stroke-linecap="round" /></svg></span>Signing in...</>) : 'Sign in'}</button>
                     </div>
                 </form>
             </div>
