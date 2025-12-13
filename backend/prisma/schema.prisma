@@ -1,0 +1,56 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id       String     @id @default(uuid())
+  name     String
+  email    String  @unique
+  password String
+  role     Role    @default(EMPLOYEE)
+  tasks    Task[]  @relation("UserTasks")
+  refreshTokens RefreshToken[]
+  assignedTasks  Task[]    @relation("AssignedTasks")
+  createdTasks   Task[]    @relation("CreatedTasks")
+}
+
+model RefreshToken {
+  id        String      @id @default(uuid())
+  tokenHash String   @unique
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+  revoked   Boolean  @default(false)
+}
+
+model Task {
+  id          String   @id @default(uuid())
+  title       String
+  description String?
+  status      String   @default("PENDING")
+  due_date    DateTime?
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+  assigned_to String?
+  assignedTo  User?    @relation("AssignedTasks", fields: [assigned_to], references: [id])
+  created_by  String
+  createdBy   User     @relation("CreatedTasks", fields: [created_by], references: [id])
+
+  users User[] @relation("UserTasks")
+}
+
+enum Role {
+  ADMIN
+  EMPLOYEE
+}
+
+enum Status {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+}
