@@ -8,7 +8,8 @@ const router = express.Router();
 
 // Admin-only user management routes
 router.post('/register', authenticateToken, authorize('ADMIN'), authController.registerUser);
-router.get('/users', authenticateToken, authorize('ADMIN'), userController.getUser);
+// Allow authenticated users to list users so task assignment works for employees as well
+router.get('/users', authenticateToken, userController.getUser);
 router.delete('/users/:id', authenticateToken, authorize('ADMIN'), userController.deleteUser);
 
 export default router;

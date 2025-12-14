@@ -39,32 +39,29 @@ export const createTask = async (req, res) => {
 
 export const assignTask = async (req, res) => {
     try {
-        const { taskId } = req.params;
+        const { id } = req.params;
         const { assigned_to } = req.body;
 
-        if (!assigned_to) {
-            return res.status(400).json({
-                message: 'assigned_to is required'
-            });
-        }
+        // support unassigning by sending empty string or null
+        const assignee = assigned_to === '' ? null : assigned_to === null ? null : assigned_to;
 
-        const task = await taskService.getTaskById(taskId);
+        const task = await taskService.getTaskById(id);
         if (!task) {
             return res.status(404).json({
                 message: 'Task not found'
             });
         }
-
-        // ensure the assigned_to exists and is an EMPLOYEE
-        const user = await prisma.user.findFirst({ where: { id: assigned_to, role: 'EMPLOYEE' } });
-
-        if (!user) {
-            return res.status(400).json({
-                message: 'Employee not found'
-            });
+        if (assignee) {
+            // ensure the assigned_to exists
+            const userExists = await prisma.user.findUnique({ where: { id: assignee } });
+            if (!userExists) {
+                return res.status(400).json({
+                    message: 'User not found'
+                });
+            }
         }
 
-        const updatedTask = await taskService.assignTask(taskId, assigned_to);
+        const updatedTask = await taskService.assignTask(id, assignee);
         const full = await taskService.getTaskById(updatedTask.id);
         res.status(200).json(full);
     } catch (error) {
@@ -102,7 +99,7 @@ export const updateTaskStatus = async (req, res) => {
 export const updateTask = async (req, res) => {
     try {
         const { id } = req.params;
-        const { title, description, due_date } = req.body;
+        const { title, description, due_date, assigned_to } = req.body;
 
         const task = await taskService.getTaskById(id);
         if (!task) {
@@ -112,17 +109,32 @@ export const updateTask = async (req, res) => {
         }
 
         if (req.user.role !== 'ADMIN' &&
-            !(await taskService.checkUserIsCreator(id, req.user.id))) {
+            !(await taskService.checkUserIsCreator(id, req.user.id)) &&
+            !(await taskService.checkUserIsAssigned(id, req.user.id))) {
             return res.status(403).json({
                 message: 'You are not authorized to update this task'
             });
         }
 
-        const updatedTask = await taskService.updateTask(id, {
+        const updateData = {
             title: title || task.title,
             description: description !== undefined ? description : task.description,
             due_date: due_date ? new Date(due_date) : task.due_date
-        });
+        };
+
+        if (assigned_to !== undefined) {
+            if (assigned_to === null || assigned_to === '') {
+                updateData.assigned_to = null;
+            } else {
+                const userExists = await prisma.user.findUnique({ where: { id: assigned_to } });
+                if (!userExists) {
+                    return res.status(400).json({ message: 'Assigned user not found' });
+                }
+                updateData.assigned_to = assigned_to;
+            }
+        }
+
+        const updatedTask = await taskService.updateTask(id, updateData);
 
         const full = await taskService.getTaskById(updatedTask.id);
         res.status(200).json(full);
@@ -165,5 +177,16 @@ export const getTasks = async (req, res) => {
         res.status(200).json(tasks);
     } catch (error) {
         handleError(res, error, 'Failed to fetch tasks');
+    }
+};
+
+export const getTask = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const task = await taskService.getTaskById(id);
+        if (!task) return res.status(404).json({ message: 'Task not found' });
+        res.status(200).json(task);
+    } catch (error) {
+        handleError(res, error, 'Failed to fetch task');
     }
 };

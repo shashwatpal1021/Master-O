@@ -25,17 +25,25 @@ const Dashboard = () => {
   const [createTaskLoading, setCreateTaskLoading] = useState(false);
   const [createUserLoading, setCreateUserLoading] = useState(false);
   const [updatingTask, setUpdatingTask] = useState(null);
+  const [assigningTask, setAssigningTask] = useState(null);
   const [highlightedTask, setHighlightedTask] = useState(null);
-  const [isDark, setIsDark] = useState(false);
+  // Theme toggle removed; app uses a single light theme
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [showUserModal, setShowUserModal] = useState(false);
   const [taskErrors, setTaskErrors] = useState({});
   const [userErrors, setUserErrors] = useState({});
+  const [editingTask, setEditingTask] = useState(null);
+  const [editingId, setEditingId] = useState(null);
+  const [inlineEditId, setInlineEditId] = useState(null);
+  const [inlineForm, setInlineForm] = useState({ title: '', description: '' });
+  const [fetchingTask, setFetchingTask] = useState(null);
+  const [openMenuId, setOpenMenuId] = useState(null);
 
   // Fetch tasks/users and set state - defined inline in useEffect to avoid stale closures
 
   useEffect(() => {
-    const fn = async () => {
+    // fetch initial tasks and users; also re-fetch on external events (e.g., task created)
+    const fetchData = async () => {
       try {
         setTasksLoading(true);
         setUsersLoading(true);
@@ -44,10 +52,9 @@ const Dashboard = () => {
         const tasksData = await api.get('/tasks');
         setTasks(tasksData);
 
-        if (user?.role === 'ADMIN') {
-          const usersData = await api.get('/auth/users');
-          setUsers(usersData);
-        }
+        // Fetch users for everyone so assignee lists are available to assign tasks
+        const usersData = await api.get('/auth/users');
+        setUsers(usersData);
       } catch (err) {
         console.error('Failed to load data:', err);
         setError(err.response?.data?.message || err.message || 'Failed to load data');
@@ -56,19 +63,13 @@ const Dashboard = () => {
         setUsersLoading(false);
       }
     };
-    fn();
+    fetchData();
+    const onCreated = (e) => { fetchData(); setMessage(e?.detail ? 'Task created successfully' : 'Task created'); setTimeout(() => setMessage(null), 3000); };
+    window.addEventListener('taskCreated', onCreated);
+    return () => window.removeEventListener('taskCreated', onCreated);
   }, [user]);
 
-  useEffect(() => {
-    const _theme = localStorage.getItem('theme');
-    if (_theme === 'dark') {
-      setIsDark(true);
-      document.documentElement.classList.add('dark');
-    } else {
-      setIsDark(false);
-      document.documentElement.classList.remove('dark');
-    }
-  }, []);
+  // Theme persistence removed
 
   const submitTask = async (e) => {
     e.preventDefault();
@@ -86,7 +87,7 @@ const Dashboard = () => {
       setError(null);
       setMessage(null);
 
-      const assignedTo = user.role === 'EMPLOYEE' ? user.id : (form.assigned_to || null);
+      const assignedTo = form.assigned_to || null;
 
       const newTask = await api.post('/tasks', {
         title: form.title,
@@ -129,12 +130,19 @@ const Dashboard = () => {
   const updateTask = async (taskId, data) => {
     try {
       setError(null);
+      setEditingTask(taskId);
       const updatedTask = await api.put(`/tasks/${taskId}`, data);
       setTasks(prev => prev.map(t => t.id === taskId ? updatedTask : t));
+      setHighlightedTask(taskId);
+      setTimeout(() => setHighlightedTask(null), 1200);
+      setMessage('Task updated successfully');
+      setTimeout(() => setMessage(null), 2500);
+      setEditingTask(null);
       return true;
     } catch (err) {
       console.error('Error updating task:', err);
       setError(err.message || 'Failed to update task');
+      setEditingTask(null);
       return false;
     }
   };
@@ -161,14 +169,17 @@ const Dashboard = () => {
   const assignTask = async (taskId, assignedToId) => {
     try {
       setError(null);
+      setAssigningTask(taskId);
       const updated = await api.patch(`/tasks/${taskId}/assign`, { assigned_to: assignedToId });
       setTasks(prev => prev.map(t => t.id === taskId ? updated : t));
       setMessage('Task assigned');
       setTimeout(() => setMessage(null), 3000);
+      setAssigningTask(null);
       return true;
     } catch (err) {
       console.error('Assign failed', err);
       setError(err.message || 'Failed to assign task');
+      setAssigningTask(null);
       return false;
     }
   };
@@ -257,27 +268,33 @@ const Dashboard = () => {
     }
   };
 
-  const filteredTasks = useMemo(() => {
-    let results = tasks;
-    if (filter !== 'ALL') {
-      results = results.filter(t => t.status === filter);
-    }
-    if (showMine) {
-      results = results.filter(t => (t.assignedTo && t.assignedTo.id === user.id) || t.assigned_to === user.id);
-    }
-    if (query) {
-      const q = query.toLowerCase();
-      results = results.filter(t => (t.title || '').toLowerCase().includes(q) || (t.description || '').toLowerCase().includes(q));
-    }
-    return results.sort((a,b) => new Date(a.due_date || 0) - new Date(b.due_date || 0));
-  }, [tasks, filter, showMine, query, user]);
+ const filteredTasks = useMemo(() => {
+  let results = tasks;
+  if (filter !== 'ALL') {
+    results = results.filter(t => t.status === filter);
+  }
+  if (showMine && user?.role !== 'ADMIN') {  // Only filter by 'My tasks' if not admin
+    results = results.filter(t =>
+      (t.assignedTo && t.assignedTo.id === user?.id) ||
+      t.assigned_to === user?.id
+    );
+  }
+  if (query) {
+    const q = query.toLowerCase();
+    results = results.filter(t =>
+      (t.title || '').toLowerCase().includes(q) ||
+      (t.description || '').toLowerCase().includes(q)
+    );
+  }
+  return results.sort((a,b) => new Date(a.due_date || 0) - new Date(b.due_date || 0));
+}, [tasks, filter, showMine, query, user]);
 
   const statusClass = (status) => {
     switch (status) {
-      case 'PENDING': return 'bg-yellow-200 text-yellow-800';
-      case 'IN_PROGRESS': return 'bg-blue-200 text-blue-800';
-      case 'COMPLETED': return 'bg-green-200 text-green-800';
-      default: return 'bg-gray-100 text-gray-700';
+      case 'PENDING': return 'bg-yellow-200';
+      case 'IN_PROGRESS': return 'bg-blue-200';
+      case 'COMPLETED': return 'bg-green-200';
+      default: return 'bg-gray-100';
     }
   };
 
@@ -286,29 +303,17 @@ const Dashboard = () => {
       <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div className="flex items-center gap-3">
           <h1 className="text-2xl font-bold">Dashboard</h1>
-          <button
+          {/* <button
             className="p-2 rounded-full bg-green-600 text-white text-sm plus-button btn-smooth"
             title="Create Task"
             onClick={() => setShowTaskModal(true)}
             aria-label="Create task"
           >
             +
-          </button>
+          </button> */}
         </div>
-        <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-4">
           <span className="text-sm text-muted">{user?.name} <span className="text-xs text-muted-2">({user?.role})</span></span>
-          <button
-            className="px-2 py-1 rounded border text-sm"
-            onClick={() => {
-              const next = !isDark;
-              setIsDark(next);
-              if (next) document.documentElement.classList.add('dark');
-              else document.documentElement.classList.remove('dark');
-              localStorage.setItem('theme', next ? 'dark' : 'light');
-            }}
-          >
-            {isDark ? '🌙' : '☀️'}
-          </button>
           <button onClick={handleLogout} className="bg-red-500 text-white px-3 py-1 rounded">Logout</button>
         </div>
       </header>
@@ -320,7 +325,10 @@ const Dashboard = () => {
           <div className="flex items-center justify-between">
             <div className="text-sm text-muted">Click the plus button (top-left) to create a new task using the modal.</div>
             <div>
-              <button className="px-3 py-1 rounded bg-blue-600 text-white btn-smooth" onClick={() => setShowTaskModal(true)}>Open Create Task</button>
+              <button
+                className="px-3 py-1 rounded bg-blue-600 text-white btn-smooth"
+                onClick={() => { navigate('/tasks/create'); }}
+              >Create Task</button>
             </div>
           </div>
           <div className="mt-3">
@@ -333,7 +341,7 @@ const Dashboard = () => {
           <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-3">
             <h2 className="text-lg font-semibold">Tasks</h2>
-            <button className="p-1 rounded-full bg-green-600 text-white plus-button" title="Create Task" onClick={() => setShowTaskModal(true)}>+</button>
+
           </div>
           <div className="flex items-center gap-2">
             <input className="border p-1 rounded" placeholder="Search" value={query} onChange={(e) => setQuery(e.target.value)} />
@@ -348,81 +356,115 @@ const Dashboard = () => {
         </div>
         {tasksLoading ? <div>Loading tasks…</div> : (
           filteredTasks.map(task => (
-          <div key={task.id} className={`p-2 rounded task-card ${highlightedTask === task.id ? 'task-flash' : ''}`} style={{border: '1px solid #ddd', margin: 8}}>
-            <div className="flex justify-between items-start">
-              <div>
-                <div className="font-semibold">{task.title}</div>
-                <div className="text-sm text-muted">Assigned: {task.assignedTo?.name || task.assigned_to || 'Unassigned'}</div>
-                  <div className="text-sm">{task.description}</div>
-                  <div className="text-xs text-gray-400">Created by: {task.createdBy?.name || 'Unknown'}</div>
+            <div
+              key={task.id}
+              className={`p-3 rounded task-row ${highlightedTask === task.id ? 'task-flash' : 'hover:bg-gray-50'}`}
+              style={{ border: '1px solid #e6e6e6', margin: 6 }}
+              role="button"
+              tabIndex={0}
+              onClick={async (e) => {
+                // ignore clicks on interactive controls (handled by stopPropagation below)
+                try {
+                  setFetchingTask(task.id);
+                  const fresh = await api.get(`/tasks/${task.id}`);
+                  setForm({
+                    title: fresh.title || '',
+                    description: fresh.description || '',
+                    due_date: fresh.due_date ? new Date(fresh.due_date).toISOString().slice(0,10) : '',
+                    assigned_to: fresh.assignedTo?.id || fresh.assigned_to || ''
+                  });
+                  setEditingId(task.id);
+                  setShowTaskModal(true);
+                } catch (err) {
+                  console.error('Failed to fetch task for open', err);
+                  setError(err.message || 'Failed to fetch task');
+                } finally {
+                  setFetchingTask(null);
+                }
+              }}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.currentTarget.click(); } }}
+            >
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex-1">
+                  <div className="font-semibold truncate">{task.title}</div>
+                  <div className="text-sm text-muted truncate">{task.description}</div>
+                </div>
+                <div className="w-40 text-right text-sm">
+                  <div className={`inline-block px-2 py-1 text-xs rounded ${statusClass(task.status)}`}>{task.status}</div>
+                </div>
+                <div className="w-32 text-sm text-muted text-right">{task.due_date ? new Date(task.due_date).toLocaleDateString() : 'No due date'}</div>
+                <div className="relative">
+                  <button
+                    className="px-2 py-1 rounded hover:bg-gray-100"
+                    onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === task.id ? null : task.id); }}
+                    aria-haspopup="true"
+                    aria-expanded={openMenuId === task.id}
+                    title="Open menu"
+                  >
+                    ⋯
+                  </button>
+                  {openMenuId === task.id && (
+                    <div className="absolute right-0 mt-2 bg-white border rounded shadow z-10" onClick={(e) => e.stopPropagation()}>
+                      <button className="block px-3 py-2 w-full text-left hover:bg-gray-100" onClick={() => { setOpenMenuId(null); navigate(`/tasks/${task.id}`); }}>Edit</button>
+                      {/* <button
+                        className={`block px-3 py-2 w-full text-left hover:bg-gray-100 ${editingId === task.id && showTaskModal ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        onClick={async () => {
+                          if (editingId === task.id && showTaskModal) return;
+                          setOpenMenuId(null);
+                          // open modal for editing
+                          try {
+                            setFetchingTask(task.id);
+                            const fresh = await api.get(`/tasks/${task.id}`);
+                            setForm({
+                              title: fresh.title || '',
+                              description: fresh.description || '',
+                              due_date: fresh.due_date ? new Date(fresh.due_date).toISOString().slice(0,10) : '',
+                              assigned_to: fresh.assignedTo?.id || fresh.assigned_to || ''
+                            });
+                            setEditingId(task.id);
+                            setShowTaskModal(true);
+                          } catch (err) {
+                            console.error('Failed to fetch task for edit', err);
+                            setError(err.message || 'Failed to fetch task');
+                          } finally {
+                            setFetchingTask(null);
+                          }
+                        }}
+                        aria-disabled={editingId === task.id && showTaskModal}
+                      >Open</button> */}
+                      {user?.role === 'ADMIN' && (
+                        <button className="block px-3 py-2 w-full text-left text-red-600 hover:bg-gray-100" onClick={async () => {
+                          setOpenMenuId(null);
+                          await deleteTask(task.id);
+                        }}>Delete</button>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
-              <div className="text-sm text-muted">Due: {task.due_date ? new Date(task.due_date).toLocaleDateString() : 'No due date'}</div>
             </div>
-            <div>Details: {task.description}</div>
-            <div className="mt-3 flex items-center justify-between">
-              <label className="mr-2">Status:</label>
-              <select
-                value={task.status}
-                onChange={(e) => updateStatus(task.id, e.target.value)}
-                className="border p-1 rounded"
-                disabled={user?.role === 'EMPLOYEE' && !(task.assignedTo && task.assignedTo.id === user.id)}
-              >
-                <option value="PENDING">PENDING</option>
-                <option value="IN_PROGRESS">IN_PROGRESS</option>
-                <option value="COMPLETED">COMPLETED</option>
-              </select>
-              {updatingTask === task.id && (<span className="ml-2 inline-block align-middle"><Spinner size={14} color="var(--text)" /></span>)}
-              <div className={`px-2 py-1 text-xs rounded ${statusClass(task.status)}`}>{task.status}</div>
-            </div>
-            {user?.role === 'ADMIN' && (
-              <div className="flex gap-2 mt-3">
-                <button onClick={() => updateTask(task.id, { title: task.title + ' (edited)' })} className="px-2 py-1 bg-yellow-300 rounded">Quick Edit</button>
-                <button onClick={() => deleteTask(task.id)} className="px-2 py-1 bg-red-500 text-white rounded">Delete</button>
-              </div>
-            )}
-            {user?.role === 'ADMIN' && (
-              <div className="mt-2">
-                <label className="text-sm mr-2">Assign: </label>
-                <select defaultValue={task.assignedTo?.id || ''} onChange={(e) => assignTask(task.id, e.target.value)} className="border p-1 rounded">
-                  <option value="">Unassigned</option>
-                  {users.map(u => (
-                    <option key={u.id} value={u.id}>{u.name} ({u.role})</option>
-                  ))}
-                </select>
-              </div>
-            )}
-          </div>
           ))
         )}
         {!tasksLoading && filteredTasks.length === 0 && <div className="text-sm text-muted">No tasks found for current filters.</div>}
       </section>
 
-      {user?.role === 'ADMIN' && (
+      {user && user.role === 'ADMIN' && (
         <section className="mt-6">
-          <div className="bg-card p-4 rounded shadow">
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold mb-2">Users</h2>
-                <button className="p-1 rounded-full bg-blue-600 text-white plus-button btn-smooth" onClick={() => setShowUserModal(true)} aria-label="Create user">+</button>
+          <div className="bg-card p-5 rounded shadow">
+              <div className="flex  items-center justify-between">
+                <h2 className="text-lg font-semibold mb-5">List of the User</h2>
+                <button className="p-2 rounded-md bg-blue-600 text-white plus-button btn-smooth" onClick={() => navigate('/users/create')} aria-label="Create user">Create User</button>
               </div>
-              <div className="grid grid-cols-1 gap-2 mb-3">
-              <input value={newUser.name} onChange={(e) => setNewUser({...newUser, name: e.target.value})} placeholder="Name" required className="border p-2 rounded" />
-              <input value={newUser.email} onChange={(e) => setNewUser({...newUser, email: e.target.value})} placeholder="Email" type="email" required className="border p-2 rounded" />
-              <input value={newUser.password} onChange={(e) => setNewUser({...newUser, password: e.target.value})} placeholder="Password" type="password" required className="border p-2 rounded" />
-              <select value={newUser.role} onChange={(e) => setNewUser({...newUser, role: e.target.value})} className="border p-2 rounded">
-                <option value="EMPLOYEE">EMPLOYEE</option>
-                <option value="ADMIN">ADMIN</option>
-              </select>
-              <div className="text-sm text-muted">Click plus icon to open the create user modal for a richer experience.</div>
-            </div>
-            <ul className="space-y-2">
+
+            <ul className="space-y-2 p-2">
               {usersLoading ? (
                 <div>Loading users…</div>
               ) : (
                 users.map(u => (
                   <li key={u.id} className="flex items-center justify-between">
-                    <div>{u.name} <span className="text-sm text-muted">({u.role})</span></div>
+                    <div>{u.name.charAt(0).toUpperCase() + u.name.slice(1)} </div><span className="text-sm text-muted">{u.role}</span>
                     <div>
-                      <button onClick={() => deleteUser(u.id)} className="px-2 py-1 bg-red-500 text-white rounded">Delete</button>
+                      <button onClick={() => deleteUser(u.id)} className="px-3 py-1 bg-red-500 text-white rounded-full">X</button>
                     </div>
                   </li>
                 ))
@@ -433,30 +475,50 @@ const Dashboard = () => {
       )}
 
       {/* Modal for creating task */}
-      <Modal open={showTaskModal} onClose={() => setShowTaskModal(false)} title="Create Task">
-        <form onSubmit={async (e) => { const ok = await submitTask(e); if (ok) setShowTaskModal(false); }} className="space-y-3">
+      <Modal open={showTaskModal} onClose={() => { setShowTaskModal(false); setEditingId(null); setForm({ title: '', description: '', due_date: '', assigned_to: null }); }} title={editingId ? 'Task' : 'Create Task'}>
+        <form onSubmit={async (e) => {
+          e.preventDefault();
+          if (editingId) {
+            const ok = await updateTask(editingId, {
+              title: form.title,
+              description: form.description,
+              due_date: form.due_date,
+              assigned_to: form.assigned_to || null
+            });
+            if (ok) {
+              setShowTaskModal(false);
+              setEditingId(null);
+              setForm({ title: '', description: '', due_date: '', assigned_to: null });
+            }
+          } else {
+            const ok = await submitTask(e);
+            if (ok) setShowTaskModal(false);
+          }
+        }} className="space-y-3">
           <div>
            <input value={form.title} onChange={(e) => setForm({...form, title: e.target.value})} placeholder="Title" required className="w-full border p-2 rounded" />
            {taskErrors.title && <div className="text-sm text-red-500 mt-1">{taskErrors.title}</div>}
           </div>
-          <textarea value={form.description} onChange={(e) => setForm({...form, description: e.target.value})} placeholder="Description" className="w-full border p-2 rounded" rows={3} />
+          <textarea
+            value={form.description}
+            onChange={(e) => setForm({...form, description: e.target.value})}
+            onInput={(e) => setForm({...form, description: e.target.value})}
+            onKeyDown={(e) => { if (e.key === ' ') e.stopPropagation(); }}
+            placeholder="Description"
+            className="w-full border p-2 rounded"
+            rows={3}
+          />
           <div className="flex gap-3">
             <input type="date" value={form.due_date} onChange={(e) => setForm({...form, due_date: e.target.value})} className="border p-2 rounded" />
             {taskErrors.due_date && <div className="text-sm text-red-500 mt-1">{taskErrors.due_date}</div>}
-            {user?.role === 'ADMIN' ? (
+            <div className="flex items-center gap-2">
               <select value={form.assigned_to || ''} onChange={(e) => setForm({...form, assigned_to: e.target.value})} className="border p-2 rounded">
                 <option value="">Unassigned</option>
                 {users.map(u => (
                   <option key={u.id} value={u.id}>{u.name} ({u.role})</option>
                 ))}
               </select>
-            ) : (
-                <input type="text" value={user?.name || ''} disabled className="border p-2 rounded text-muted" />
-            )}
-            <button type="submit" className="bg-blue-600 text-white px-3 py-2 rounded disabled:opacity-60 btn-smooth" disabled={createTaskLoading}>
-              {createTaskLoading && (<span className="inline-block mr-2 align-middle"><Spinner size={14} color="white" /></span>)}
-              <span>{createTaskLoading ? 'Creating...' : 'Create'}</span>
-            </button>
+            </div>
           </div>
         </form>
       </Modal>
@@ -495,4 +557,5 @@ const Dashboard = () => {
 };
 
 export { Dashboard };
+
 

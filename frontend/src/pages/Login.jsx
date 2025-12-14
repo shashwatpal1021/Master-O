@@ -50,11 +50,11 @@ const Login = () => {
                 {error && <div className="mb-4 text-red-600">{error}</div>}
                 <form onSubmit={submit} className="space-y-4">
                     <div>
-                        <label className="block text-sm font-medium text-gray-700">Email</label>
+                        <label className="block text-sm font-medium text-muted">Email</label>
                         <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" className="mt-1 block w-full border rounded p-2" required />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-gray-700">Password</label>
+                        <label className="block text-sm font-medium text-muted">Password</label>
                         <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password" className="mt-1 block w-full border rounded p-2" required />
                     </div>
                     <div className="flex items-center justify-between">

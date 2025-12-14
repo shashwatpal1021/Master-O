@@ -5,20 +5,14 @@
 :root {
 	--bg: #f8fafc; /* light gray */
 	--card-bg: #ffffff; /* white */
-	--text: #111827; /* gray-900 */
-	--muted: #6b7280; /* gray-500 */
+	--text: #000000; /* black text in light theme */
+	--muted: #6b7280; /* muted for light theme */
 	--muted-2: #9ca3af;
 }
 
 .task-flash { animation: flashTask 1.5s ease; }
 @keyframes flashTask { 0% { box-shadow: 0 0 0px rgba(59, 130, 246, 0.25);} 20% { box-shadow: 0 6px 26px rgba(59,130,246,0.18);} 100% { box-shadow: none; }}
-.dark {
-	--bg: #0b1220; /* darker background */
-	--card-bg: #0f1724; /* container */
-	--text: #e6eef8; /* light text */
-	--muted: #93a4bf; /* muted */
-	--muted-2: #9fb3d0;
-}
+/* Dark theme removed - app uses light theme variables only */
 
 body {
 	background-color: var(--bg);
@@ -84,4 +78,19 @@ body {
 
 .task-card { transition: transform 120ms ease, box-shadow 120ms ease; }
 .task-card:hover { transform: translateY(-2px); box-shadow: 0 8px 22px rgba(0,0,0,0.06); }
+
+/* Inputs and selects should follow theme text color and placeholders be muted */
+input, textarea, select {
+	color: var(--text);
+	background-color: transparent;
+}
+input::placeholder, textarea::placeholder {
+	color: var(--muted-2);
+}
+
+/* Status badge text follows theme */
+.status-badge {
+	color: var(--text);
+	font-weight: 600;
+}
 

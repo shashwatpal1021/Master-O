@@ -60,7 +60,20 @@ const Modal = ({ open, onClose, title, children, id }) => {
       onClick={(e) => { if (e.target.classList.contains('modal-overlay')) onClose(); }}
       aria-hidden={!open}
     >
-      <div className="modal-card bg-card p-4" role="dialog" aria-modal="true" aria-labelledby={id || 'modal-title'} ref={modalRef} style={{ color: 'var(--text)' }}>
+      <div
+        className="modal-card bg-card p-4"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={id || 'modal-title'}
+        ref={modalRef}
+        style={{ color: 'var(--text)' }}
+        onKeyDown={(e) => {
+          // prevent space/enter from bubbling to global handlers while keeping Escape/Tab working
+          if (e.key === ' ' || e.key === 'Spacebar' || e.key === 'Enter') {
+            e.stopPropagation();
+          }
+        }}
+      >
         <div className="flex items-center justify-between mb-3">
           <h3 id={id || 'modal-title'} className="font-semibold">{title}</h3>
           <button onClick={onClose} className="px-2 py-1 rounded text-muted" aria-label="Close dialog">✕</button>
