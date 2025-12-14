@@ -343,7 +343,7 @@ const Dashboard = () => {
             <h2 className="text-lg font-semibold">Tasks</h2>
 
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center rounded-md p-2 gap-2">
             <input className="border p-1 rounded" placeholder="Search" value={query} onChange={(e) => setQuery(e.target.value)} />
             <select className="border p-1 rounded" value={filter} onChange={(e) => setFilter(e.target.value)}>
               <option value="ALL">All</option>
@@ -351,7 +351,6 @@ const Dashboard = () => {
               <option value="IN_PROGRESS">IN_PROGRESS</option>
               <option value="COMPLETED">COMPLETED</option>
             </select>
-            <label className="text-sm flex items-center gap-1"><input type="checkbox" checked={showMine} onChange={() => setShowMine(v => !v)} /> My tasks</label>
           </div>
         </div>
         {tasksLoading ? <div>Loading tasks…</div> : (
@@ -406,32 +405,8 @@ const Dashboard = () => {
                   {openMenuId === task.id && (
                     <div className="absolute right-0 mt-2 bg-white border rounded shadow z-10" onClick={(e) => e.stopPropagation()}>
                       <button className="block px-3 py-2 w-full text-left hover:bg-gray-100" onClick={() => { setOpenMenuId(null); navigate(`/tasks/${task.id}`); }}>Edit</button>
-                      {/* <button
-                        className={`block px-3 py-2 w-full text-left hover:bg-gray-100 ${editingId === task.id && showTaskModal ? 'opacity-50 cursor-not-allowed' : ''}`}
-                        onClick={async () => {
-                          if (editingId === task.id && showTaskModal) return;
-                          setOpenMenuId(null);
-                          // open modal for editing
-                          try {
-                            setFetchingTask(task.id);
-                            const fresh = await api.get(`/tasks/${task.id}`);
-                            setForm({
-                              title: fresh.title || '',
-                              description: fresh.description || '',
-                              due_date: fresh.due_date ? new Date(fresh.due_date).toISOString().slice(0,10) : '',
-                              assigned_to: fresh.assignedTo?.id || fresh.assigned_to || ''
-                            });
-                            setEditingId(task.id);
-                            setShowTaskModal(true);
-                          } catch (err) {
-                            console.error('Failed to fetch task for edit', err);
-                            setError(err.message || 'Failed to fetch task');
-                          } finally {
-                            setFetchingTask(null);
-                          }
-                        }}
-                        aria-disabled={editingId === task.id && showTaskModal}
-                      >Open</button> */}
+
+
                       {user?.role === 'ADMIN' && (
                         <button className="block px-3 py-2 w-full text-left text-red-600 hover:bg-gray-100" onClick={async () => {
                           setOpenMenuId(null);
@@ -515,7 +490,7 @@ const Dashboard = () => {
               <select value={form.assigned_to || ''} onChange={(e) => setForm({...form, assigned_to: e.target.value})} className="border p-2 rounded">
                 <option value="">Unassigned</option>
                 {users.map(u => (
-                  <option key={u.id} value={u.id}>{u.name} ({u.role})</option>
+                  <option key={u.id} value={u.id}>{u.name}</option>
                 ))}
               </select>
             </div>

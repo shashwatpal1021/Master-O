@@ -11,7 +11,7 @@ import taskRoutes from './routes/task.routes.js';
 const app = express();
 
 // Middleware
-app.use(cors({ origin: true, credentials: true }));
+app.use(cors({ origin: "*", credentials: true }));
 app.use(express.json());
 app.use(cookieParser());
 
